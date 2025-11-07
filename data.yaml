@@ -1,0 +1,6 @@
+train: final/images/train
+val: final/images/val
+test: final/images/test
+
+nc: 5
+names: [blight, scab, spot, rust, mildew]
