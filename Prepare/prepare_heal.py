@@ -1,25 +1,29 @@
-import os, shutil
+import os
+import shutil
+from pathlib import Path
 
-DATASET_DIR = "binary_leaf_dataset/leaf"   # ✅ chỉ ảnh lá
-OUT_DIR = "binary_health_dataset"
+BASE_DIR = Path(__file__).resolve().parent
+ROOT = BASE_DIR.parent / "Dataset"
+DATASET_DIR = ROOT / "binary_leaf_dataset" / "leaf"
+OUT_DIR = ROOT / "binary_health_dataset"
 
 for sub in ["healthy", "diseased"]:
-    os.makedirs(os.path.join(OUT_DIR, sub), exist_ok=True)
+    os.makedirs(OUT_DIR / sub, exist_ok=True)
 
-def is_healthy(folder_name: str) -> bool:
-    f = folder_name.lower()
-    return f.endswith("__healthy") or "healthy" in f
+def is_healthy(name: str) -> bool:
+    name = name.lower()
+    return name.endswith("__healthy") or "healthy" in name
 
 for root, _, files in os.walk(DATASET_DIR):
     folder = os.path.basename(root)
-    rel = os.path.relpath(root, DATASET_DIR)  # giữ cấu trúc con
+    rel = Path(root).relative_to(DATASET_DIR)
     for f in files:
         if not f.lower().endswith(('.jpg', '.jpeg', '.png')):
             continue
-        src = os.path.join(root, f)
+        src = Path(root) / f
         sub = "healthy" if is_healthy(folder) else "diseased"
-        dst = os.path.join(OUT_DIR, sub, rel, f)
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        dst = OUT_DIR / sub / rel / f
+        dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
-print("Healthy-vs-Diseased (leaf-only) dataset created!")
+print(f"✅ Healthy-vs-Diseased dataset created in: {OUT_DIR}")
