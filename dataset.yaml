@@ -1,0 +1,12 @@
+# YOLOv8 Segmentation Dataset
+path: C:/Users/Admin/Desktop/CV/yolo_dataset
+train: train
+val: val
+
+names:
+  0: healthy
+  1: black_rot
+  2: blight
+  3: middew
+  4: rust
+  5: spot

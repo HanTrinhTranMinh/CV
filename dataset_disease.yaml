@@ -1,0 +1,11 @@
+path: prepared
+train: images/train
+val: images/val
+
+names:
+  0: healthy
+  1: black_rot
+  2: blight
+  3: middew
+  4: rust
+  5: spot

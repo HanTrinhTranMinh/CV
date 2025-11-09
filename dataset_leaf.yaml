@@ -1,0 +1,6 @@
+path: Dataset
+train: .
+val: .
+names:
+  0: background
+  1: leaf
