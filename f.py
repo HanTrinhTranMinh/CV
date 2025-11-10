@@ -1,14 +1,56 @@
-# fix_ultralytics_path.py
-import json, os
-cfg_path = os.path.expanduser("~\\AppData\\Roaming\\Ultralytics\\settings.json")
-cfg = {
-    "datasets_dir": "C:/Users/Admin/Desktop/CV",
-    "weights_dir": "C:/Users/Admin/Desktop/CV/runs",
-    "runs_dir": "C:/Users/Admin/Desktop/CV/runs",
-    "uuid": "",
-    "sync": False
-}
-os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
-with open(cfg_path, "w") as f:
-    json.dump(cfg, f, indent=4)
-print("✅ settings.json fixed successfully at", cfg_path)
+import subprocess
+import time
+import os
+
+# ==============================
+# ⚙️ CẤU HÌNH
+# ==============================
+MODEL = "yolov8n-seg.pt"            # model gốc (tiny)
+DATASET_YAML = "dataset.yaml"       # đường dẫn file cấu hình YOLO
+EPOCHS = 20                         # giảm xuống 20
+IMGSZ = 512                         # kích thước ảnh
+BATCH = 8                           # batch size
+NAME = "train_seg20"                # tên folder output
+
+# ==============================
+# 🚀 TRAIN YOLO
+# ==============================
+print("🚀 Bắt đầu train YOLOv8 segmentation...\n")
+start = time.time()
+
+# Đảm bảo ultralytics đã có
+try:
+    import ultralytics
+except ImportError:
+    print("📦 Cài đặt ultralytics...")
+    subprocess.run(["pip", "install", "-U", "ultralytics"], check=True)
+
+# Câu lệnh YOLO CLI
+cmd = [
+    "yolo",
+    "segment",
+    "train",
+    f"model={MODEL}",
+    f"data={DATASET_YAML}",
+    f"epochs={EPOCHS}",
+    f"imgsz={IMGSZ}",
+    f"batch={BATCH}",
+    f"name={NAME}",
+    "verbose=True"
+]
+
+print("🔹 Lệnh YOLO:", " ".join(cmd), "\n")
+
+# Chạy realtime
+process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+for line in iter(process.stdout.readline, ''):
+    print(line, end='')  # hiển thị epoch realtime
+process.stdout.close()
+process.wait()
+
+# ==============================
+# ✅ Hoàn tất
+# ==============================
+elapsed = int(time.time() - start)
+print(f"\n✅ Huấn luyện hoàn tất trong {elapsed}s!")
+print(f"📂 Kết quả lưu tại: runs/segment/{NAME}/weights/best.pt")
