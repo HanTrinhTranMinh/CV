@@ -1,6 +1,9 @@
-path: Dataset
-train: .
-val: .
+# dataset_leaf.yaml
+path: yolo_leaf
+train: train/images
+val: val/images
+test: test/images
+
 names:
   0: background
   1: leaf

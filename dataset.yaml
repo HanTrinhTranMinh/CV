@@ -2,6 +2,7 @@
 path: C:/Users/Admin/Desktop/CV/yolo_dataset
 train: train
 val: val
+test: test
 
 names:
   0: healthy

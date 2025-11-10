@@ -10,8 +10,9 @@ st.title("🌿 Leaf Disease Detection (Real-Time)")
 # ============================
 # 🔹 Load Models
 # ============================
-leaf_cls = YOLO("yolov8n-cls.pt")  # model phân loại (tạm thời)
-disease_seg = YOLO("runs/segment/train_seg20/weights/best.pt")  # model segmentation bạn đã train
+lleaf_cls = YOLO("runs/detect/train_leaf/weights/best.pt")
+disease_seg = YOLO("runs/segment/train_seg/weights/best.pt")
+
 
 # ============================
 # 🔹 Start webcam
@@ -72,3 +73,5 @@ while camera.isOpened() and not stop_button:
 
 camera.release()
 st.success("Camera đã dừng 🎉")
+
+

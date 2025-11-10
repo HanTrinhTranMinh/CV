@@ -6,54 +6,43 @@ import random
 from datetime import datetime
 
 # ==========================================
-# ⚙️ CẤU HÌNH
+# ⚙️ CẤU HÌNH CHUNG
 # ==========================================
 DATASET_DIR = "Dataset"
 PREPARED_DIR = "prepared"
 YOLO_DIR = "yolo_dataset"
+YOLO_LEAF_DIR = "yolo_leaf"
+
 TRAIN_DIR = os.path.join(YOLO_DIR, "train")
 VAL_DIR = os.path.join(YOLO_DIR, "val")
+TEST_DIR = os.path.join(YOLO_DIR, "test")
+
 DATASET_YAML = "dataset.yaml"
+DATASET_LEAF_YAML = "dataset_leaf.yaml"
 
-# YOLOv8 tham số
-EPOCHS = 50
+# Tham số YOLOv8
+EPOCHS = 20
 IMGSZ = 512
-MODEL = "yolov8n-seg.pt"
 BATCH = 8
+MODEL_SEG = "yolov8n-seg.pt"
+MODEL_DET = "yolov8n.pt"
 
 # ==========================================
-# 🧩 BƯỚC 1: TẠO MASK
+# 🔹 HÀM CHIA DỮ LIỆU (train/val/test)
 # ==========================================
-print("🧩 [1/5] Bước 1: Tạo mask (prepare_dataset.py)...")
-start_time = time.time()
-subprocess.run(["python", "prepare_dataset.py"], check=True)
-print(f"✅ Hoàn tất tạo mask trong {time.time() - start_time:.1f}s\n")
-
-# ==========================================
-# 🧩 BƯỚC 2: SINH LABEL YOLO
-# ==========================================
-print("🧩 [2/5] Bước 2: Sinh label YOLO (generate_yolo_labels.py)...")
-subprocess.run(["python", "generate_yolo_labels.py"], check=True)
-print("✅ Đã sinh xong label YOLO!\n")
-
-# ==========================================
-# 🧩 BƯỚC 3: CHIA TRAIN / VAL
-# ==========================================
-print("🧩 [3/5] Bước 3: Chia train/val...")
-
-def split_dataset(base_dir=YOLO_DIR, train_ratio=0.8):
+def split_dataset(base_dir, train_ratio=0.7, val_ratio=0.2):
     image_dir = os.path.join(base_dir, "images")
     label_dir = os.path.join(base_dir, "labels")
 
-    # Clear và tạo thư mục lại
-    for sub in ["train", "val"]:
+    # Tạo thư mục chia tập
+    for subset in ["train", "val", "test"]:
         for sub2 in ["images", "labels"]:
-            folder = os.path.join(base_dir, sub, sub2)
+            folder = os.path.join(base_dir, subset, sub2)
             os.makedirs(folder, exist_ok=True)
-            # Xóa dữ liệu cũ nếu có
             for f in os.listdir(folder):
                 os.remove(os.path.join(folder, f))
 
+    # Duyệt từng lớp
     for cls in os.listdir(image_dir):
         cls_img = os.path.join(image_dir, cls)
         cls_lbl = os.path.join(label_dir, cls)
@@ -65,31 +54,68 @@ def split_dataset(base_dir=YOLO_DIR, train_ratio=0.8):
             continue
 
         random.shuffle(imgs)
-        split_idx = int(len(imgs) * train_ratio)
+        n = len(imgs)
+        train_end = int(n * train_ratio)
+        val_end = int(n * (train_ratio + val_ratio))
 
         for i, img_file in enumerate(imgs):
             src_img = os.path.join(cls_img, img_file)
             src_lbl = os.path.join(cls_lbl, img_file.replace(".jpg", ".txt"))
 
-            dst_root = TRAIN_DIR if i < split_idx else VAL_DIR
+            if i < train_end:
+                subset = "train"
+            elif i < val_end:
+                subset = "val"
+            else:
+                subset = "test"
+
+            dst_root = os.path.join(base_dir, subset)
             shutil.copy(src_img, os.path.join(dst_root, "images", img_file))
             if os.path.exists(src_lbl):
                 shutil.copy(src_lbl, os.path.join(dst_root, "labels", img_file.replace(".jpg", ".txt")))
 
-    print("✅ Dataset đã được chia thành train/val!")
-
-split_dataset()
-print()
+    print(f"✅ Dataset tại '{base_dir}' đã được chia thành train/val/test!")
 
 # ==========================================
-# 🧩 BƯỚC 4: TẠO FILE DATASET.YAML
+# 🧩 BƯỚC 1: TẠO MASK
 # ==========================================
-print("🧩 [4/5] Sinh file dataset.yaml...")
+print("🧩 [1/8] Tạo mask (prepare_dataset.py)...")
+start_time = time.time()
+subprocess.run(["python", "prepare_dataset.py"], check=True)
+print(f"✅ Hoàn tất tạo mask trong {time.time() - start_time:.1f}s\n")
 
-yaml_content = f"""# YOLOv8 Segmentation Dataset
+# ==========================================
+# 🧩 BƯỚC 2: SINH LABEL BỆNH
+# ==========================================
+print("🧩 [2/8] Sinh label YOLO segmentation (generate_yolo_labels.py)...")
+subprocess.run(["python", "generate_yolo_labels.py"], check=True)
+print("✅ Đã sinh label segmentation!\n")
+
+# ==========================================
+# 🧩 BƯỚC 3: SINH LABEL LÁ
+# ==========================================
+print("🧩 [3/8] Sinh label YOLO leaf detection (yolo_label_leaf.py)...")
+subprocess.run(["python", "yolo_label_leaf.py"], check=True)
+print("✅ Đã sinh label leaf detection!\n")
+
+# ==========================================
+# 🧩 BƯỚC 4: CHIA TRAIN/VAL/TEST
+# ==========================================
+print("🧩 [4/8] Chia tập train/val/test...")
+split_dataset(YOLO_DIR)
+split_dataset(YOLO_LEAF_DIR)
+print("✅ Hoàn tất chia tập!\n")
+
+# ==========================================
+# 🧩 BƯỚC 5: TẠO FILE YAML
+# ==========================================
+print("🧩 [5/8] Sinh file dataset.yaml và dataset_leaf.yaml...")
+
+yaml_seg = f"""# YOLOv8 Segmentation Dataset
 path: {os.path.abspath(YOLO_DIR).replace("\\", "/")}
 train: train
 val: val
+test: test
 
 names:
   0: healthy
@@ -99,46 +125,81 @@ names:
   4: rust
   5: spot
 """
+
+yaml_leaf = f"""# YOLOv8 Leaf Detection Dataset
+path: {os.path.abspath(YOLO_LEAF_DIR).replace("\\", "/")}
+train: train/images
+val: val/images
+test: test/images
+
+names:
+  0: background
+  1: leaf
+"""
+
 with open(DATASET_YAML, "w", encoding="utf-8") as f:
-    f.write(yaml_content)
+    f.write(yaml_seg)
+with open(DATASET_LEAF_YAML, "w", encoding="utf-8") as f:
+    f.write(yaml_leaf)
 
-print("✅ Đã tạo xong dataset.yaml!\n")
+print("✅ Đã tạo file dataset.yaml và dataset_leaf.yaml!\n")
 
 # ==========================================
-# 🧩 BƯỚC 5: TRAIN YOLO
+# 🧩 BƯỚC 6: TRAIN 2 MÔ HÌNH
 # ==========================================
-print("🧩 [5/5] Bắt đầu train YOLOv8 segmentation...\n")
+def train_yolo(model_type, model, data, name):
+    print(f"🚀 Bắt đầu train {model_type}...")
+    cmd = [
+        "yolo",
+        model_type,
+        "train",
+        f"model={model}",
+        f"data={data}",
+        f"epochs={EPOCHS}",
+        f"imgsz={IMGSZ}",
+        f"batch={BATCH}",
+        "verbose=True",
+        f"name={name}"
+    ]
+    print("🔹 Lệnh:", " ".join(cmd), "\n")
+    subprocess.run(cmd, check=True)
+    print(f"✅ Hoàn tất train {model_type}!\n")
 
-# Đảm bảo có ultralytics
-try:
-    import ultralytics
-except ImportError:
-    print("📦 Cài đặt ultralytics...")
-    subprocess.run(["pip", "install", "-U", "ultralytics"], check=True)
+train_yolo("segment", MODEL_SEG, DATASET_YAML, "train_seg")
+train_yolo("detect", MODEL_DET, DATASET_LEAF_YAML, "train_leaf")
 
-# Gọi lệnh train
-cmd = [
-    "yolo",
-    "segment",
-    "train",
-    f"model={MODEL}",
-    f"data={DATASET_YAML}",
-    f"epochs={EPOCHS}",
-    f"imgsz={IMGSZ}",
-    f"batch={BATCH}",
-    "verbose=True",
-    "name=train"
-]
+# ==========================================
+# 🧩 BƯỚC 7: DỰ ĐOÁN KIỂM TRA
+# ==========================================
+print("🧩 [7/8] Dự đoán kiểm tra mô hình...\n")
 
-print("🔹 Lệnh YOLO:", " ".join(cmd), "\n")
+test_img_dir = os.path.join(YOLO_DIR, "test", "images")
+sample_imgs = [os.path.join(test_img_dir, f) for f in os.listdir(test_img_dir)[:3]]
 
-process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-for line in iter(process.stdout.readline, ''):
-    print(line, end='')  # In ra từng dòng epoch real-time
-process.stdout.close()
-process.wait()
+for img_path in sample_imgs:
+    print(f"🔸 Dự đoán trên {img_path}")
+    subprocess.run([
+        "yolo", "segment", "predict",
+        f"model=runs/segment/train_seg/weights/best.pt",
+        f"source={img_path}",
+        "save=True",
+        "conf=0.5"
+    ], check=True)
+
+# ==========================================
+# 🧩 BƯỚC 8: ĐÁNH GIÁ (EVALUATE)
+# ==========================================
+print("🧩 [8/8] Chạy evaluate.py để đánh giá mô hình...\n")
+
+if os.path.exists("evaluate.py"):
+    subprocess.run(["python", "evaluate.py"], check=True)
+    print("✅ Đã chạy evaluate.py thành công!\n")
+else:
+    print("⚠️ Không tìm thấy evaluate.py — bỏ qua bước đánh giá.\n")
 
 total_time = int(time.time() - start_time)
-print(f"\n✅ Toàn bộ pipeline hoàn tất!")
+print("\n🎉 Toàn bộ pipeline hoàn tất!")
 print(f"🕒 Thời gian tổng: {total_time}s")
-print(f"📂 Kết quả YOLO: runs/segment/train/weights/best.pt")
+print("📂 Kết quả:")
+print("  - Segmentation: runs/segment/train_seg/weights/best.pt")
+print("  - Leaf detection: runs/detect/train_leaf/weights/best.pt")

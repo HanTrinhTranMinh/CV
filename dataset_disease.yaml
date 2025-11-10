@@ -1,6 +1,8 @@
-path: prepared
-train: images/train
-val: images/val
+# dataset_disease.yaml
+path: yolo_dataset
+train: train
+val: val
+test: test
 
 names:
   0: healthy
